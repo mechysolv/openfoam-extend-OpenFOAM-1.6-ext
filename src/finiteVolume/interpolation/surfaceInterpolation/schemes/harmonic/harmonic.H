@@ -42,6 +42,7 @@ SourceFiles
 #include "surfaceInterpolationScheme.H"
 #include "volFields.H"
 #include "surfaceFields.H"
+#include "magLongDelta.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -124,6 +125,12 @@ public:
                 )
             );
 
+            const surfaceScalarField& deltaCoeffs = this->mesh().deltaCoeffs();
+            const surfaceScalarField& weights = this->mesh().weights();
+
+            const magLongDelta& mld = magLongDelta::New(this->mesh());
+            const surfaceScalarField& longDelta = mld.magDelta();
+
             surfaceScalarField& w = tw();
 
             const unallocLabelList& owner = this->mesh().owner();
@@ -136,14 +143,19 @@ public:
             // Calculate internal weights using field magnitude
             forAll (owner, faceI)
             {
-                scalar mOwn = magPhi[owner[faceI]];
-                scalar mNei = magPhi[neighbour[faceI]];
+                label own = owner[faceI];
+                label nei = neighbour[faceI];
+
+                scalar mOwn = magPhi[own]/(1 - weights[faceI]);
+                scalar mNei = magPhi[nei]/weights[faceI];
 
                 scalar den = mOwn - mNei;
 
                 if (mag(den) > SMALL)
                 {
-                    scalar mean = 2.0*mOwn*mNei/(mOwn + mNei);
+                    scalar mean = 
+                        mOwn*mNei/(mOwn + mNei)
+                        /longDelta[faceI]/deltaCoeffs[faceI];
                     wIn[faceI] = (mean - mNei)/den;
                 }
                 else
@@ -156,15 +168,26 @@ public:
             {
                 fvsPatchScalarField& wp = w.boundaryField()[pi];
 
-                const fvPatchField<Type>& patchPhi = phi.boundaryField()[pi];
+                const fvPatchField<Type>& pPhi = phi.boundaryField()[pi];
 
-                if (patchPhi.coupled())
+                if (pPhi.coupled())
                 {
-                    scalarField magPhiOwn = mag(patchPhi.patchInternalField());
-                    scalarField magPhiNei = mag(patchPhi.patchNeighbourField());
+                    const scalarField& pWeights = weights.boundaryField()[pi];
+                    scalarField magPhiOwn =
+                        mag(pPhi.patchInternalField()/(1 - pWeights));
+
+                    // HR 110827:
+                    // This is not fully consistent. Should interpolate
+                    // the weights as done in regionCoupleFvPatchField
+                    scalarField magPhiNei =
+                        mag(pPhi.patchNeighbourField())/pWeights;
+
+                    const scalarField& pDeltaCoeffs =
+                        deltaCoeffs.boundaryField()[pi];
+                    const scalarField& pLongDelta = mld.magDelta(pi);
 
                     // Calculate internal weights using field magnitude
-                    forAll (patchPhi, faceI)
+                    forAll (pPhi, faceI)
                     {
                         scalar mOwn = magPhiOwn[faceI];
                         scalar mNei = magPhiNei[faceI];
@@ -173,12 +196,13 @@ public:
 
                         if (mag(den) > SMALL)
                         {
-                             scalar mean = 2.0*mOwn*mNei/(mOwn + mNei);
-                             wp[faceI] = (mean - mNei)/den;
+                            scalar mean = mOwn*mNei/(mOwn + mNei)
+                                /pLongDelta[faceI]/pDeltaCoeffs[faceI];
+                            wp[faceI] = (mean - mNei)/den;
                         }
                         else
                         {
-                             wp[faceI] = 0.5;
+                            wp[faceI] = 0.5;
                         }
                     }
                 }

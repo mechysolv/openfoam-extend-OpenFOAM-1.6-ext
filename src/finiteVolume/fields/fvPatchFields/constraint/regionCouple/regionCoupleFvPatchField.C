@@ -28,6 +28,7 @@ Author
 \*---------------------------------------------------------------------------*/
 
 #include "regionCoupleFvPatchField.H"
+#include "magLongDelta.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -46,7 +47,9 @@ regionCoupleFvPatchField<Type>::regionCoupleFvPatchField
     coupledFvPatchField<Type>(p, iF),
     regionCouplePatch_(refCast<const regionCoupleFvPatch>(p)),
     remoteFieldName_(iF.name()),
-    matrixUpdateBuffer_()
+    matrixUpdateBuffer_(),
+    originalPatchField_(),
+    curTimeIndex_(-1)
 {}
 
 
@@ -61,7 +64,9 @@ regionCoupleFvPatchField<Type>::regionCoupleFvPatchField
     coupledFvPatchField<Type>(p, iF, dict),
     regionCouplePatch_(refCast<const regionCoupleFvPatch>(p)),
     remoteFieldName_(dict.lookup("remoteField")),
-    matrixUpdateBuffer_()
+    matrixUpdateBuffer_(),
+    originalPatchField_(),
+    curTimeIndex_(-1)
 {
     if (!isType<regionCoupleFvPatch>(p))
     {
@@ -93,7 +98,9 @@ regionCoupleFvPatchField<Type>::regionCoupleFvPatchField
     coupledFvPatchField<Type>(ptf, p, iF, mapper),
     regionCouplePatch_(refCast<const regionCoupleFvPatch>(p)),
     remoteFieldName_(ptf.remoteFieldName_),
-    matrixUpdateBuffer_()
+    matrixUpdateBuffer_(),
+    originalPatchField_(ptf.originalPatchField()),
+    curTimeIndex_(ptf.curTimeIndex_)
 {
     if (!isType<regionCoupleFvPatch>(this->patch()))
     {
@@ -126,13 +133,35 @@ regionCoupleFvPatchField<Type>::regionCoupleFvPatchField
     coupledFvPatchField<Type>(ptf, iF),
     regionCouplePatch_(refCast<const regionCoupleFvPatch>(ptf.patch())),
     remoteFieldName_(ptf.remoteFieldName_),
-    matrixUpdateBuffer_()
+    matrixUpdateBuffer_(),
+    originalPatchField_(ptf.originalPatchField()),
+    curTimeIndex_(ptf.curTimeIndex_)
 {}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-// Return neighbour field
+// Return a named shadow patch field
+template<class Type>
+template<class GeometricField, class Type2>
+const typename GeometricField::PatchFieldType&
+regionCoupleFvPatchField<Type>::lookupShadowPatchField
+(
+    const word& name,
+    const GeometricField*,
+    const Type2*
+) const
+{
+    // Lookup neighbour field
+    const GeometricField& shadowField =
+        regionCouplePatch_.shadowRegion().
+        objectRegistry::lookupObject<GeometricField>(name);
+
+    return shadowField.boundaryField()[regionCouplePatch_.shadowIndex()];
+}
+
+
+// Return shadow patch field
 template<class Type>
 const regionCoupleFvPatchField<Type>&
 regionCoupleFvPatchField<Type>::shadowPatchField() const
@@ -140,18 +169,14 @@ regionCoupleFvPatchField<Type>::shadowPatchField() const
     // Lookup neighbour field
     typedef GeometricField<Type, fvPatchField, volMesh> GeoField;
 
-    const GeoField& coupleField =
-        regionCouplePatch_.shadowRegion().
-        objectRegistry::lookupObject<GeoField>(remoteFieldName_);
-
     return refCast<const regionCoupleFvPatchField<Type> >
     (
-        coupleField.boundaryField()[regionCouplePatch_.shadowIndex()]
+        lookupShadowPatchField<GeoField, Type>(remoteFieldName_)
     );
 }
 
 
-// Return neighbour field
+// Return neighbour field given internal cell data
 template<class Type>
 tmp<Field<Type> > regionCoupleFvPatchField<Type>::patchNeighbourField() const
 {
@@ -162,12 +187,53 @@ tmp<Field<Type> > regionCoupleFvPatchField<Type>::patchNeighbourField() const
 }
 
 
+// Return neighbour field given internal cell data
+template<class Type>
+tmp<Field<Type> > regionCoupleFvPatchField<Type>::patchNeighbourField
+(
+    const word& name
+) const
+{
+    // Lookup neighbour field
+    typedef GeometricField<Type, fvPatchField, volMesh> GeoField;
+
+    return regionCouplePatch_.interpolate
+    (
+        lookupShadowPatchField<GeoField, Type>(name).patchInternalField()
+    );
+}
+
+
 template<class Type>
 void regionCoupleFvPatchField<Type>::evaluate
 (
     const Pstream::commsTypes
 )
 {
+    if (!this->updated())
+    {
+        this->updateCoeffs();
+    }
+
+    fvPatchField<Type>::evaluate();
+}
+
+
+template<class Type>
+void regionCoupleFvPatchField<Type>::updateCoeffs()
+{
+    if (this->updated())
+    {
+        return;
+    }
+
+    if (curTimeIndex_ != this->db().time().timeIndex())
+    {
+        originalPatchField_ = *this;
+        curTimeIndex_ = this->db().time().timeIndex();
+    }
+
+
     // Implement weights-based stabilised harmonic interpolation using
     // magnitude of type
     // Algorithm:
@@ -177,25 +243,36 @@ void regionCoupleFvPatchField<Type>::evaluate
     // 4) Based on above, calculate w = (mean - mNei)/(mOwn - mNei)
     // 5) Use weights to interpolate values
 
-    Field<Type> fOwn = this->patchInternalField();
-    Field<Type> fNei = this->patchNeighbourField();
+    const fvPatch& p = this->patch();
+    const scalarField& dc = p.deltaCoeffs();
+    const regionCoupleFvPatchField<Type>& spf = shadowPatchField();
+    const fvPatch& sp = spf.patch();
 
-    scalarField magFOwn = mag(fOwn);
-    scalarField magFNei = mag(fNei);
+    const magLongDelta& mld = magLongDelta::New(p.boundaryMesh().mesh());
+    const magLongDelta& smld = magLongDelta::New(sp.boundaryMesh().mesh());
+
+    Field<Type> fOwn =
+        this->originalPatchField()
+        /(1 - p.weights())/mld.magDelta(p.index());
+    Field<Type> fNei = regionCouplePatch_.interpolate
+    (
+        spf.originalPatchField()
+        /(1 - sp.weights())/smld.magDelta(sp.index())
+    );
 
     // Calculate internal weights using field magnitude
     scalarField weights(fOwn.size());
 
     forAll (weights, faceI)
     {
-        scalar mOwn = magFOwn[faceI];
-        scalar mNei = magFNei[faceI];
+        scalar mOwn = mag(fOwn[faceI]);
+        scalar mNei = mag(fNei[faceI]);
 
         scalar den = mOwn - mNei;
 
         if (mag(den) > SMALL)
         {
-            scalar mean = 2.0*mOwn*mNei/(mOwn + mNei);
+            scalar mean = mOwn*mNei/(mOwn + mNei)/dc[faceI];
             weights[faceI] = (mean - mNei)/den;
         }
         else
@@ -206,6 +283,22 @@ void regionCoupleFvPatchField<Type>::evaluate
 
     // Do interpolation
     Field<Type>::operator=(weights*fOwn + (1.0 - weights)*fNei);
+
+    fvPatchField<Type>::updateCoeffs();
+}
+
+
+template<class Type>
+tmp<Field<Type> > regionCoupleFvPatchField<Type>::snGrad() const
+{
+    if(regionCouplePatch_.attached())
+    {
+        return coupledFvPatchField<Type>::snGrad();
+    }
+    else
+    {
+        return fvPatchField<Type>::snGrad();
+    }
 }
 
 

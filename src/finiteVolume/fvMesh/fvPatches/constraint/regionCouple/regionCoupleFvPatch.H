@@ -142,9 +142,14 @@ public:
             return rcPolyPatch_.interpolate(tpf);
         }
 
+        //- Return the state of the rcPolyPatch
+        bool attached() const
+        {
+            return rcPolyPatch_.attached();
+        }
+
         //- Return delta (P to N) vectors across coupled patch
         virtual tmp<vectorField> delta() const;
-
 
         // Interface transfer functions
 

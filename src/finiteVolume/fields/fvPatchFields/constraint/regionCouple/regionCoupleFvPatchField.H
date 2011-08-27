@@ -69,6 +69,12 @@ class regionCoupleFvPatchField
         //- Matrix update buffer
         mutable scalarField matrixUpdateBuffer_;
 
+        //- original patch field
+        Field<Type> originalPatchField_;
+
+        //- Current time index used to store originalPatchField_
+        label curTimeIndex_;
+
 
 protected:
 
@@ -151,17 +157,58 @@ public:
                 return remoteFieldName_;
             }
 
+            //- Return a named shadow patch field
+            template<class GeometricField, class Type2>
+            const typename GeometricField::PatchFieldType&
+            lookupShadowPatchField
+            (
+                const word& name,
+                const GeometricField* = NULL,
+                const Type2* = NULL
+            ) const;
+
+
+            const regionCoupleFvPatch& regionCouplePatch()
+            {
+                return regionCouplePatch_;
+            }
+
             //- Return shadow patch field
             const regionCoupleFvPatchField<Type>& shadowPatchField() const;
 
             //- Return neighbour field given internal cell data
             virtual tmp<Field<Type> > patchNeighbourField() const;
 
+            //- Return neighbour field given internal cell data
+            virtual tmp<Field<Type> > patchNeighbourField
+            (
+                const word& name
+            ) const;
+
             //- Evaluate the patch field
             virtual void evaluate
             (
                 const Pstream::commsTypes commsType
             );
+
+            //- Update the coefficients associated with the patch field
+            virtual void updateCoeffs();
+
+            //- Return patch-normal gradient
+            virtual tmp<Field<Type> > snGrad() const;
+
+            //- Return original patch field
+            const Field<Type>& originalPatchField() const
+            {
+                if (curTimeIndex_ == this->db().time().timeIndex())
+                {
+                    return originalPatchField_;
+                }
+                else
+                {
+                    return *this;
+                }
+            };
 
             //- Initialise neighbour matrix update
             virtual void initInterfaceMatrixUpdate

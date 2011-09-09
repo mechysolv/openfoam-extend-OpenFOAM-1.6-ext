@@ -29,6 +29,8 @@ Author
 
 #include "regionCoupleFvPatchField.H"
 #include "magLongDelta.H"
+#include "volFields.H"
+#include "surfaceFields.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -143,19 +145,19 @@ regionCoupleFvPatchField<Type>::regionCoupleFvPatchField
 
 // Return a named shadow patch field
 template<class Type>
-template<class GeometricField, class Type2>
-const typename GeometricField::PatchFieldType&
+template<class LookupField, class LookupType>
+const typename LookupField::PatchFieldType&
 regionCoupleFvPatchField<Type>::lookupShadowPatchField
 (
     const word& name,
-    const GeometricField*,
-    const Type2*
+    const LookupField*,
+    const LookupType*
 ) const
 {
     // Lookup neighbour field
-    const GeometricField& shadowField =
+    const LookupField& shadowField =
         regionCouplePatch_.shadowRegion().
-        objectRegistry::lookupObject<GeometricField>(name);
+        objectRegistry::lookupObject<LookupField>(name);
 
     return shadowField.boundaryField()[regionCouplePatch_.shadowIndex()];
 }
@@ -204,6 +206,7 @@ tmp<Field<Type> > regionCoupleFvPatchField<Type>::patchNeighbourField
 }
 
 
+
 template<class Type>
 void regionCoupleFvPatchField<Type>::evaluate
 (
@@ -245,7 +248,7 @@ void regionCoupleFvPatchField<Type>::updateCoeffs()
 
     const fvPatch& p = this->patch();
     const scalarField& dc = p.deltaCoeffs();
-    const regionCoupleFvPatchField<Type>& spf = shadowPatchField();
+    const regionCoupleFvPatchField<Type>& spf = this->shadowPatchField();
     const fvPatch& sp = spf.patch();
 
     const magLongDelta& mld = magLongDelta::New(p.boundaryMesh().mesh());

@@ -43,8 +43,13 @@ Foam::magLongDelta::magLongDelta(const fvMesh& mesh)
 :
     MeshObject<fvMesh, magLongDelta>(mesh),
     magLongDeltaPtr_(NULL),
-    magLongDeltaBnd_(mesh.boundary().size(), NULL)
-{}
+    magLongDeltaBnd_(mesh.boundary().size())
+{
+    forAll(magLongDeltaBnd_, i)
+    {
+        magLongDeltaBnd_[i] = NULL;
+    }
+}
 
 
 // * * * * * * * * * * * * * * * * Destructor * * * * * * * * * * * * * * * //

@@ -140,6 +140,9 @@ public:
 
             scalarField& wIn = w.internalField();
 
+            // Larger small for complex arithmetic accuracy
+            const scalar kSmall = 1000*SMALL;
+
             // Calculate internal weights using field magnitude
             forAll (owner, faceI)
             {
@@ -149,14 +152,18 @@ public:
                 scalar mOwn = magPhi[own]/(1 - weights[faceI]);
                 scalar mNei = magPhi[nei]/weights[faceI];
 
-                scalar den = mOwn - mNei;
+                scalar den = magPhi[nei] - magPhi[own];
 
-                if (mag(den) > SMALL)
+                scalar mean = mOwn*mNei/
+                    ((mOwn + mNei)*longDelta[faceI]*deltaCoeffs[faceI]);
+
+                // Note: complex arithmetic requires extra accuracy
+                // This is a division of two close subtractions
+                // HJ, 28/Sep/2011
+                if (mag(den) > kSmall)
                 {
-                    scalar mean = 
-                        mOwn*mNei/(mOwn + mNei)
-                        /longDelta[faceI]/deltaCoeffs[faceI];
-                    wIn[faceI] = (mean - mNei)/den;
+                    // mOwn > mNei
+                    wIn[faceI] = (magPhi[nei] - mean)/den;
                 }
                 else
                 {
@@ -173,32 +180,36 @@ public:
                 if (pPhi.coupled())
                 {
                     const scalarField& pWeights = weights.boundaryField()[pi];
-                    scalarField magPhiOwn =
-                        mag(pPhi.patchInternalField()/(1 - pWeights));
 
-                    // HR 110827:
-                    // This is not fully consistent. Should interpolate
-                    // the weights as done in regionCoupleFvPatchField
-                    scalarField magPhiNei =
-                        mag(pPhi.patchNeighbourField())/pWeights;
+                    scalarField magPhiOwn = mag(pPhi.patchInternalField());
+                    scalarField magPhiNei = mag(pPhi.patchNeighbourField());
 
                     const scalarField& pDeltaCoeffs =
                         deltaCoeffs.boundaryField()[pi];
+
                     const scalarField& pLongDelta = mld.magDelta(pi);
 
                     // Calculate internal weights using field magnitude
                     forAll (pPhi, faceI)
                     {
-                        scalar mOwn = magPhiOwn[faceI];
-                        scalar mNei = magPhiNei[faceI];
+                        scalar mOwn = magPhiOwn[faceI]/(1 - pWeights[faceI]);
+                        scalar mNei = magPhiNei[faceI]/pWeights[faceI];
 
-                        scalar den = mOwn - mNei;
+                        scalar den = magPhiNei[faceI] - magPhiOwn[faceI];
 
-                        if (mag(den) > SMALL)
+                        // Note: complex arithmetic requires extra accuracy
+                        // This is a division of two close subtractions
+                        // HJ, 28/Sep/2011
+                        if (mag(den) > kSmall)
                         {
-                            scalar mean = mOwn*mNei/(mOwn + mNei)
-                                /pLongDelta[faceI]/pDeltaCoeffs[faceI];
-                            wp[faceI] = (mean - mNei)/den;
+                            scalar mean = mOwn*mNei/
+                                (
+                                    (mOwn + mNei)*
+                                    pLongDelta[faceI]*
+                                    pDeltaCoeffs[faceI]
+                                );
+
+                            wp[faceI] = (magPhiNei[faceI] - mean)/den;
                         }
                         else
                         {

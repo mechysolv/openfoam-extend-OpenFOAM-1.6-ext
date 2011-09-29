@@ -85,6 +85,12 @@ regionCoupleFvPatchField<Type>::regionCoupleFvPatchField
             << "Patch type = " << p.type()
             << exit(FatalIOError);
     }
+
+    if (!dict.found("value"))
+    {
+        // Grab the internal value for initialisation. (?) HJ, 27/Feb/2009
+        fvPatchField<Type>::operator=(this->patchInternalField()());
+    }
 }
 
 
@@ -101,8 +107,8 @@ regionCoupleFvPatchField<Type>::regionCoupleFvPatchField
     regionCouplePatch_(refCast<const regionCoupleFvPatch>(p)),
     remoteFieldName_(ptf.remoteFieldName_),
     matrixUpdateBuffer_(),
-    originalPatchField_(ptf.originalPatchField()),
-    curTimeIndex_(ptf.curTimeIndex_)
+    originalPatchField_(),
+    curTimeIndex_(-1)
 {
     if (!isType<regionCoupleFvPatch>(this->patch()))
     {
@@ -136,8 +142,8 @@ regionCoupleFvPatchField<Type>::regionCoupleFvPatchField
     regionCouplePatch_(refCast<const regionCoupleFvPatch>(ptf.patch())),
     remoteFieldName_(ptf.remoteFieldName_),
     matrixUpdateBuffer_(),
-    originalPatchField_(ptf.originalPatchField()),
-    curTimeIndex_(ptf.curTimeIndex_)
+    originalPatchField_(),
+    curTimeIndex_(-1)
 {}
 
 
@@ -246,37 +252,55 @@ void regionCoupleFvPatchField<Type>::updateCoeffs()
     // 4) Based on above, calculate w = (mean - mNei)/(mOwn - mNei)
     // 5) Use weights to interpolate values
 
-    const fvPatch& p = this->patch();
-    const scalarField& dc = p.deltaCoeffs();
-    const regionCoupleFvPatchField<Type>& spf = this->shadowPatchField();
-    const fvPatch& sp = spf.patch();
-
-    const magLongDelta& mld = magLongDelta::New(p.boundaryMesh().mesh());
-    const magLongDelta& smld = magLongDelta::New(sp.boundaryMesh().mesh());
-
-    Field<Type> fOwn =
-        this->originalPatchField()
-        /(1 - p.weights())/mld.magDelta(p.index());
+    const Field<Type>& fOwn = this->originalPatchField();
     Field<Type> fNei = regionCouplePatch_.interpolate
     (
-        spf.originalPatchField()
-        /(1 - sp.weights())/smld.magDelta(sp.index())
+        this->shadowPatchField().originalPatchField()
     );
+
+    // Larger small for complex arithmetic accuracy
+    const scalar kSmall = 1000*SMALL;
+
+    const fvPatch& p = this->patch();
+
+    // Note: for interpolation, work with face fields, to allow wall-corrected
+    // diffusivity (eg wall functions) to operate correctly.
+    // HJ, 28/Sep/2011
+    Field<Type> f = *this;
+ 
+    // Mag long deltas are identical on both sides.  HJ, 28/Sep/2011
+    const magLongDelta& mld = magLongDelta::New(p.boundaryMesh().mesh());
+ 
+    scalarField magPhiOwn = mag(fOwn);
+    scalarField magPhiNei = mag(fNei);
+
+    const scalarField& pWeights = p.weights();
+    const scalarField& pDeltaCoeffs = p.deltaCoeffs();
+    const scalarField& pLongDelta = mld.magDelta(p.index());
 
     // Calculate internal weights using field magnitude
     scalarField weights(fOwn.size());
 
     forAll (weights, faceI)
     {
-        scalar mOwn = mag(fOwn[faceI]);
-        scalar mNei = mag(fNei[faceI]);
+        scalar mOwn = magPhiOwn[faceI]/(1 - pWeights[faceI]);
+        scalar mNei = magPhiNei[faceI]/pWeights[faceI];
 
-        scalar den = mOwn - mNei;
+        scalar den = magPhiNei[faceI] - magPhiOwn[faceI];
 
-        if (mag(den) > SMALL)
+        // Note: complex arithmetic requires extra accuracy
+        // This is a division of two close subtractions
+        // HJ, 28/Sep/2011
+        if (mag(den) > kSmall)
         {
-            scalar mean = mOwn*mNei/(mOwn + mNei)/dc[faceI];
-            weights[faceI] = (mean - mNei)/den;
+            scalar mean = mOwn*mNei/
+                (
+                    (mOwn + mNei)*
+                    pLongDelta[faceI]*
+                    pDeltaCoeffs[faceI]
+                );
+
+            weights[faceI] = (magPhiNei[faceI] - mean)/den;
         }
         else
         {

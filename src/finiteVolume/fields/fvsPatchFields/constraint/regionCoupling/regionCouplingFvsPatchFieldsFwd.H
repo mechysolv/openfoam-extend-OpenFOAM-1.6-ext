@@ -22,6 +22,9 @@ License
     along with OpenFOAM; if not, write to the Free Software Foundation,
     Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
+Class
+    regionCouplingFvsPatchField
+
 Description
     Region couple patch field
 
@@ -30,21 +33,29 @@ Author
 
 \*---------------------------------------------------------------------------*/
 
-#include "regionCoupleFvPatchFields.H"
-#include "addToRunTimeSelectionTable.H"
-#include "volFields.H"
+#ifndef regionCouplingFvsPatchFieldsFwd_H
+#define regionCouplingFvsPatchFieldsFwd_H
+
+#include "fvPatchField.H"
+#include "fieldTypes.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
-// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-makePatchFields(regionCouple);
+template<class Type> class regionCouplingFvsPatchField;
+
+makeFvsPatchTypeFieldTypedefs(regionCoupling)
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#endif
 
 // ************************************************************************* //

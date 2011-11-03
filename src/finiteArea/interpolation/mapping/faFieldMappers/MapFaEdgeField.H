@@ -23,33 +23,79 @@ License
     Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 Class
-    regionCouplewFvPatchFields
+    Foam::MapFaEdgeField
 
 Description
-    Region couple patch field
-
-Author
-    Hrvoje Jasak, Wikki Ltd.  All rights reserved
-
-SourceFiles
-    regionCoupleFvPatchFields.C
+    Map edge internal field on topology change.  This is a partial
+    template specialisation, see MapGeometricFields.
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef regionCoupleFvPatchFields_H
-#define regionCoupleFvPatchFields_H
+#ifndef MapFaEdgeField_H
+#define MapFaEdgeField_H
 
-#include "regionCoupleFvPatchField.H"
-#include "fieldTypes.H"
+#include "Field.H"
+#include "edgeMesh.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+template<class Type, class MeshMapper>
+class MapInternalField<Type, MeshMapper, edgeMesh>
+{
+public:
 
-makePatchTypeFieldTypedefs(regionCouple)
+    MapInternalField()
+    {}
+
+    void operator()
+    (
+        Field<Type>& field,
+        const MeshMapper& mapper
+    ) const;
+};
+
+
+template<class Type, class MeshMapper>
+void MapInternalField<Type, MeshMapper, edgeMesh>::operator()
+(
+    Field<Type>& field,
+    const MeshMapper& mapper
+) const
+{
+    if (field.size() != mapper.edgeMap().sizeBeforeMapping())
+    {
+        FatalErrorIn
+        (
+            "void MapInternalField<Type, MeshMapper, edgeMesh>::operator()\n"
+            "(\n"
+            "    Field<Type>& field,\n"
+            "    const MeshMapper& mapper\n"
+            ") const"
+        )  << "Incompatible size before mapping.  Field size: " << field.size()
+           << " map size: " << mapper.edgeMap().sizeBeforeMapping()
+           << abort(FatalError);
+    }
+
+    Info<< "Note: No mapping of FA edge fields.  Please reconsider algorithm"
+        << endl;
+
+    field.autoMap(mapper.edgeMap());
+
+    // Flip the flux
+//     const labelList flipFaces = mapper.edgeMap().flipFaceFlux().toc();
+
+//     forAll (flipFaces, i)
+//     {
+//         if (flipFaces[i] < field.size())
+//         {
+//             field[flipFaces[i]] *= -1.0;
+//         }
+//     }
+}
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

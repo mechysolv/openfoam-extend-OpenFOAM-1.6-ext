@@ -38,8 +38,8 @@ SourceFiles
 
 #include "MeshObject.H"
 #include "fvMesh.H"
+#include "primitiveFieldsFwd.H"
 #include "surfaceFieldsFwd.H"
-#include "labelPair.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -49,7 +49,7 @@ namespace Foam
 class mapPolyMesh;
 
 /*---------------------------------------------------------------------------*\
-                     Class magLongDelta Declaration
+                          Class magLongDelta Declaration
 \*---------------------------------------------------------------------------*/
 
 class magLongDelta

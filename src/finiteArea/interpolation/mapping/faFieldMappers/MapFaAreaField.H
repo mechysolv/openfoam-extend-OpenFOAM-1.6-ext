@@ -23,32 +23,65 @@ License
     Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 Class
-    regionCoupleFvPatchField
+    Foam::MapFaAreaField
 
 Description
-    Region couple patch field
-
-Author
-    Hrvoje Jasak, Wikki Ltd.  All rights reserved
+    Map area internal field on topology change.  This is a partial
+    template specialisation, see MapGeometricFields.
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef regionCoupleFvPatchFieldsFwd_H
-#define regionCoupleFvPatchFieldsFwd_H
+#ifndef MapFaAreaField_H
+#define MapFaAreaField_H
 
-#include "fvPatchField.H"
-#include "fieldTypes.H"
+#include "Field.H"
+#include "areaMesh.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+template<class Type, class MeshMapper>
+class MapInternalField<Type, MeshMapper, areaMesh>
+{
+public:
 
-template<class Type> class regionCoupleFvPatchField;
+    MapInternalField()
+    {}
 
-makePatchTypeFieldTypedefs(regionCouple)
+    void operator()
+    (
+        Field<Type>& field,
+        const MeshMapper& mapper
+    ) const;
+};
+
+
+template<class Type, class MeshMapper>
+void MapInternalField<Type, MeshMapper, areaMesh>::operator()
+(
+    Field<Type>& field,
+    const MeshMapper& mapper
+) const
+{
+    if (field.size() != mapper.areaMap().sizeBeforeMapping())
+    {
+        FatalErrorIn
+        (
+            "void MapInternalField<Type, MeshMapper, areaMesh>::operator()\n"
+            "(\n"
+            "    Field<Type>& field,\n"
+            "    const MeshMapper& mapper\n"
+            ") const"
+        )  << "Incompatible size before mapping.  Field size: " << field.size()
+           << " map size: " << mapper.areaMap().sizeBeforeMapping()
+           << abort(FatalError);
+    }
+
+    field.autoMap(mapper.areaMap());
+}
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

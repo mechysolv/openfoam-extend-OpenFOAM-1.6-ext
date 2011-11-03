@@ -22,37 +22,17 @@ License
     along with OpenFOAM; if not, write to the Free Software Foundation,
     Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
-Class
-    regionCoupleFvsPatchField
-
 Description
-    Region couple patch field
-
-Author
-    Hrvoje Jasak, Wikki Ltd.  All rights reserved
+    Finite area field mapping
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef regionCoupleFvsPatchFieldsFwd_H
-#define regionCoupleFvsPatchFieldsFwd_H
+#ifndef MapFaFields_H
+#define MapFaFields_H
 
-#include "fvPatchField.H"
-#include "fieldTypes.H"
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-namespace Foam
-{
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-template<class Type> class regionCoupleFvsPatchField;
-
-makeFvsPatchTypeFieldTypedefs(regionCouple)
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-} // End namespace Foam
+#include "MapGeometricFields.H"
+#include "MapFaEdgeField.H"
+#include "MapFaAreaField.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

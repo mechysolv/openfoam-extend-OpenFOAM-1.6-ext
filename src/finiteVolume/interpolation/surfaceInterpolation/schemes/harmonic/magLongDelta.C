@@ -43,13 +43,8 @@ Foam::magLongDelta::magLongDelta(const fvMesh& mesh)
 :
     MeshObject<fvMesh, magLongDelta>(mesh),
     magLongDeltaPtr_(NULL),
-    magLongDeltaBnd_(mesh.boundary().size())
-{
-    forAll(magLongDeltaBnd_, i)
-    {
-        magLongDeltaBnd_[i] = NULL;
-    }
-}
+    magLongDeltaBnd_(mesh.boundary().size(), NULL)
+{}
 
 
 // * * * * * * * * * * * * * * * * Destructor * * * * * * * * * * * * * * * //
@@ -64,13 +59,13 @@ Foam::magLongDelta::~magLongDelta()
 
 void Foam::magLongDelta::clearData() const
 {
-    if(magLongDeltaPtr_)
+    if (magLongDeltaPtr_)
     {
         delete magLongDeltaPtr_;
     }
     else
     {
-        forAll(magLongDeltaBnd_, i)
+        forAll (magLongDeltaBnd_, i)
         {
             if (magLongDeltaBnd_[i])
             {
@@ -95,25 +90,25 @@ void Foam::magLongDelta::makeMagLongDistance() const
         IOobject
         (
             "magLongDelta",
-            mesh_.pointsInstance(),
-            mesh_,
+            mesh().pointsInstance(),
+            mesh(),
             IOobject::NO_READ,
             IOobject::NO_WRITE,
             false
         ),
-        mesh_,
+        mesh(),
         dimensionedScalar("zero", dimLength, 0.0)
     );
     surfaceScalarField& mldp = *magLongDeltaPtr_;
 
     // Set local references to mesh data
-    const unallocLabelList& owner = mesh_.owner();
-    const unallocLabelList& neighbour = mesh_.neighbour();
+    const unallocLabelList& owner = mesh().owner();
+    const unallocLabelList& neighbour = mesh().neighbour();
 
-    const vectorField& Cf = mesh_.faceCentres();
-    const vectorField& C = mesh_.cellCentres();
-    const vectorField& Sf = mesh_.faceAreas();
-    const scalarField& magSf = mesh_.magSf();
+    const vectorField& Cf = mesh().faceCentres();
+    const vectorField& C = mesh().cellCentres();
+    const vectorField& Sf = mesh().faceAreas();
+    const scalarField& magSf = mesh().magSf();
 
     forAll (owner, facei)
     {
@@ -123,9 +118,9 @@ void Foam::magLongDelta::makeMagLongDistance() const
         mldp[facei] = (SfdOwn + SfdNei)/magSf[facei];
     }
 
-    forAll(mldp.boundaryField(), patchi)
+    forAll (mldp.boundaryField(), patchi)
     {
-        const fvPatch& p = mesh_.boundary()[patchi];
+        const fvPatch& p = mesh().boundary()[patchi];
 
         if (p.coupled())
         {
@@ -162,7 +157,7 @@ void Foam::magLongDelta::makeMagLongDistance(label patchi) const
             << endl;
     }
 
-    const fvPatch& p = mesh_.boundary()[patchi];
+    const fvPatch& p = mesh().boundary()[patchi];
 
     vectorField d = p.fvPatch::delta();
 
@@ -171,7 +166,7 @@ void Foam::magLongDelta::makeMagLongDistance(label patchi) const
         (
             (mag(p.Sf() & d) + mag(p.Sf() & (p.delta() - d)))/p.magSf()
         );
-    
+
     if (debug)
     {
         Info<< "magLongDelta::makeMagLongDistanceBnd(label patchi) :"
@@ -197,10 +192,13 @@ const Foam::scalarField& Foam::magLongDelta::magDelta
     const label patchi
 ) const
 {
-    if (!mesh_.boundary()[patchi].coupled())
+    if (!mesh().boundary()[patchi].coupled())
     {
-        FatalErrorIn("const Foam::scalarField& Foam::magLongDelta::magDelta(const label patchi) const")
-            << "patch is not a coupled. Cannot calculate long distance" << endl
+        FatalErrorIn
+        (
+            "const Foam::scalarField& Foam::magLongDelta::magDelta("
+            "const label patchi) const"
+        )   << "patch is not a coupled. Cannot calculate long distance"
             << abort(FatalError);
     }
 
@@ -223,10 +221,11 @@ bool Foam::magLongDelta::movePoints() const
 
     clearData();
 
-    magLongDeltaBnd_.setSize(mesh_.boundary().size(), NULL);
+    magLongDeltaBnd_.setSize(mesh().boundary().size(), NULL);
 
     return true;
 }
+
 
 bool Foam::magLongDelta::updateMesh(const mapPolyMesh& mpm) const
 {
@@ -238,9 +237,10 @@ bool Foam::magLongDelta::updateMesh(const mapPolyMesh& mpm) const
 
     clearData();
 
-    magLongDeltaBnd_.setSize(mesh_.boundary().size(), NULL);
+    magLongDeltaBnd_.setSize(mesh().boundary().size(), NULL);
 
     return true;
 }
+
 
 // ************************************************************************* //

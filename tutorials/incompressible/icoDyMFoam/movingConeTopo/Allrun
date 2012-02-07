@@ -16,6 +16,6 @@ cd ../../..
 
 runApplication setsToZones
 runApplication decomposePar
-runApplication $application
-#runParallel $application 4
-#runApplication reconstructParMesh -cellDist
+#runApplication $application
+runParallel $application 4
+runApplication reconstructParMesh -cellDist

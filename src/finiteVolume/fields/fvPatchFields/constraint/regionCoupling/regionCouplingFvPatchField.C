@@ -306,8 +306,6 @@ void regionCouplingFvPatchField<Type>::initEvaluate
     // diffusivity (eg wall functions) to operate correctly.
     // HJ, 28/Sep/2011
     Field<Type> f = *this;
-    const regionCouplingFvPatchField<Type>& spf = shadowPatchField();
-    const fvPatch& sp = spf.patch();
 
     // Mag long deltas are identical on both sides.  HJ, 28/Sep/2011
     const magLongDelta& mld = magLongDelta::New(p.boundaryMesh().mesh());
@@ -355,6 +353,19 @@ void regionCouplingFvPatchField<Type>::initEvaluate
 
     // Do interpolation
     Field<Type>::operator=(weights*fOwn + (1.0 - weights)*fNei);
+
+    if (regionCouplePatch_.bridgeOverlap())
+    {
+        // Symmetry treatment used for overlap
+        vectorField nHat = this->patch().nf();
+
+        Field<Type> pif = this->patchInternalField();
+
+        Field<Type> bridgeField =
+            0.5*(pif + transform(I - 2.0*sqr(nHat), pif));
+
+        regionCouplePatch_.bridge(bridgeField, *this);
+    }
 }
 
 

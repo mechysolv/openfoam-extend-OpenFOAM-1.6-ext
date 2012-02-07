@@ -42,7 +42,7 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                           Class manualDecomp Declaration
+                        Class manualDecomp Declaration
 \*---------------------------------------------------------------------------*/
 
 class manualDecomp
@@ -51,16 +51,18 @@ class manualDecomp
 {
     // Private data
 
-        const polyMesh* meshPtr_;
+        const polyMesh& mesh_;
 
         fileName decompDataFile_;
 
 
     // Private Member Functions
 
-        //- Disallow default bitwise copy construct and assignment
-        void operator=(const manualDecomp&);
+        //- Disallow default bitwise copy construct
         manualDecomp(const manualDecomp&);
+
+        //- Disallow default bitwise assignment
+        void operator=(const manualDecomp&);
 
 
 public:
@@ -97,21 +99,14 @@ public:
             return true;
         }
 
-        //- Return for every coordinate the wanted processor number. Use the
-        //  mesh connectivity (if needed)
+        //- Decompose cells with weights
         virtual labelList decompose
         (
             const pointField& points,
             const scalarField& pointWeights
         );
 
-        //- Return for every coordinate the wanted processor number. Explicitly
-        //  provided connectivity - does not use mesh_.
-        //  The connectivity is equal to mesh.cellCells() except for
-        //  - in parallel the cell numbers are global cell numbers (starting
-        //    from 0 at processor0 and then incrementing all through the
-        //    processors)
-        //  - the connections are across coupled patches
+        //- Decompose cells with weights with explicitly provided connectivity
         virtual labelList decompose
         (
             const labelListList& globalCellCells,

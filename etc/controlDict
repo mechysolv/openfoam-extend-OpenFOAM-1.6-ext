@@ -121,7 +121,6 @@ DebugSwitches
     Gidaspow            0;
     GidaspowErgunWenYu  0;
     GidaspowSchillerNaumann 0;
-    ggi                 0;
     GradientDispersionRAS   0;
     Gulders             0;
     GuldersEGR          0;
@@ -412,7 +411,6 @@ DebugSwitches
     exponential         0;
     extendedLeastSquares    0;
     extendedLeastSquaresVectors 0;
-    faMesh              0;
     face                0;
     faceAreaPair        0;
     faceCoupleInfo      0;
@@ -543,7 +541,7 @@ DebugSwitches
     laminar             0;
     laminarFlameSpeed   0;
     laplace             0;
-    layerAdditionRemoval 0;
+    layerAdditionRemoval 1;
     layered             0;
     lduInterface        0;
     lduInterfaceField   0;
@@ -629,6 +627,7 @@ DebugSwitches
     nutWallFunction     0;
     obj                 0;
     objectRegistry      0;
+    postfixedSubRegistry 0;
     octree              0;
     octreeDataEdges     0;
     octreeDataFace      0;

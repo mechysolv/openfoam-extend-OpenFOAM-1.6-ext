@@ -880,6 +880,8 @@ int main(int argc, char *argv[])
             }
             else
             {
+
+
                 // Link with relative paths
                 const string parentPath = string("..")/"..";
 

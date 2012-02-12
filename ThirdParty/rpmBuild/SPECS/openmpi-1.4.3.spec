@@ -164,8 +164,8 @@ export OPENMPI_COMPILE_FLAGS="\`mpicc --showme:compile\`"
 export OPENMPI_LINK_FLAGS="\`mpicc --showme:link\`"
 
 # Set the OpenFOAM compilation flags 
-export PINC=\$OPENMPI_COMPILE_FLAGS
-export PLIBS=\$OPENMPI_LINK_FLAGS
+export PINC="\${OPENMPI_COMPILE_FLAGS}"
+export PLIBS="\${OPENMPI_LINK_FLAGS}"
 
 
 if [ "\$FOAM_VERBOSE" -a "\$PS1" ]

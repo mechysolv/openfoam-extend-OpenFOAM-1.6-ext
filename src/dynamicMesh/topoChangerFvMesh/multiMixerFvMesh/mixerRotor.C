@@ -28,7 +28,6 @@ License
 #include "regionSplit.H"
 #include "polyTopoChanger.H"
 #include "slidingInterface.H"
-#include "ggiPolyPatch.H"
 #include "Time.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
@@ -222,17 +221,8 @@ void Foam::mixerRotor::calcMovingMask() const
     const cellList& c = mesh_.cells();
     const faceList& f = mesh_.allFaces();
 
-    label movingCellZoneID =
-        mesh_.cellZones().findZoneID("movingCellsZone" + name_);
-
-    if (movingCellZoneID < 0)
-    {
-        FatalErrorIn("void mixerRotor::calcMovingMask() const")
-            << "Cannot find moving cell zone ID"
-            << abort(FatalError);
-    }
-
-    const labelList& cellAddr = mesh_.cellZones()[movingCellZoneID];
+    const labelList& cellAddr = mesh_.cellZones()
+        [mesh_.cellZones().findZoneID("movingCellsZone" + name_)];
 
     forAll (cellAddr, cellI)
     {
@@ -251,35 +241,8 @@ void Foam::mixerRotor::calcMovingMask() const
     }
 
     // Attempt to enforce motion on sliders if zones exist
-
-    // Master side
-    label msI = -1;
-
-    if (useTopoSliding_)
-    {
-        // For topological changes, find the zone
-        msI = mesh_.faceZones().findZoneID(movingSliderName_ + "Zone" + name_);
-    }
-    else
-    {
-        // For GGI, take face zone from ggi interpolator
-        label movingSliderIndex =
-            mesh_.boundaryMesh().findPatchID(movingSliderName_);
-
-        if (movingSliderIndex > -1)
-        {
-            if (isA<ggiPolyPatch>(mesh_.boundaryMesh()[movingSliderIndex]))
-            {
-                const ggiPolyPatch& movingSliderGgi =
-                    refCast<const ggiPolyPatch>
-                    (
-                        mesh_.boundaryMesh()[movingSliderIndex]
-                    );
-
-                msI = mesh_.faceZones().findZoneID(movingSliderGgi.zoneName());
-            }
-        }
-    }
+    const label msI =
+        mesh_.faceZones().findZoneID(movingSliderName_ + "Zone" + name_);
 
     if (msI > -1)
     {
@@ -296,35 +259,8 @@ void Foam::mixerRotor::calcMovingMask() const
         }
     }
 
-    // Slave side
-    label ssI = -1;
-
-    if (useTopoSliding_)
-    {
-        // For topological changes, find the zone
-        ssI = mesh_.faceZones().findZoneID(staticSliderName_ + "Zone" + name_);
-    }
-    else
-    {
-        // For GGI, take face zone from ggi interpolator
-        label staticSliderIndex =
-            mesh_.boundaryMesh().findPatchID(staticSliderName_);
-
-        if (staticSliderIndex > -1)
-        {
-            if (isA<ggiPolyPatch>(mesh_.boundaryMesh()[staticSliderIndex]))
-            {
-                const ggiPolyPatch& staticSliderGgi =
-                    refCast<const ggiPolyPatch>
-                    (
-                        mesh_.boundaryMesh()[staticSliderIndex]
-                    );
-
-                ssI = mesh_.faceZones().findZoneID(staticSliderGgi.zoneName());
-            }
-        }
-    }
-
+    const label ssI =
+        mesh_.faceZones().findZoneID(staticSliderName_ + "Zone" + name_);
 
     if (ssI > -1)
     {
@@ -372,20 +308,17 @@ Foam::mixerRotor::mixerRotor
 :
     name_(name),
     mesh_(mesh),
-    csPtr_
+    cs_
     (
-        coordinateSystem::New
-        (
-            "coordinateSystem",
-            dict.subDict("coordinateSystem")
-        )
+        "coordinateSystem",
+        dict.subDict("coordinateSystem")
     ),
     rpm_(readScalar(dict.lookup("rpm"))),
     movingSliderName_(dict.lookup("movingPatch")),
     staticSliderName_(dict.lookup("staticPatch")),
     rotatingRegionMarker_
     (
-        dict.lookupOrDefault<point>("rotatingRegionMarker", csPtr_->origin())
+        dict.lookupOrDefault<point>("rotatingRegionMarker", cs_.origin())
     ),
     invertMotionMask_
     (
@@ -395,10 +328,34 @@ Foam::mixerRotor::mixerRotor
     attachDetach_(dict.lookupOrDefault<bool>("attachDetach", true)),
     movingPointsMaskPtr_(NULL)
 {
+    // Make sure the coordinate system does not operate in degrees
+    // Bug fix, HJ, 3/Oct/2011
+    if (!cs_.inDegrees())
+    {
+        WarningIn
+        (
+            "mixerRotor::mixerRotor\n"
+            "(\n"
+            "    const word& name,\n"
+            "    const polyMesh& mesh,\n"
+            "    const dictionary& dict\n"
+            ")"
+        )   << "Mixer coordinate system is set to operate in radians.  "
+            << "Changing to rad for correct calculation of angular velocity."
+            << nl
+            << "To remove this message please add entry" << nl << nl
+            << "inDegrees true;" << nl << nl
+            << "to the specification of the coordinate system"
+            << endl;
+
+        cs_.inDegrees() = true;
+    }
+
     Info<< "Rotor " << name << ":" << nl
         << "    origin      : " << cs().origin() << nl
         << "    axis        : " << cs().axis() << nl
         << "    rpm         : " << rpm_ << nl
+        << "    invert mask : " << invertMotionMask_ << nl
         << "    topo sliding: " << useTopoSliding_ << endl;
 
     if (useTopoSliding_)
@@ -429,10 +386,10 @@ Foam::tmp<Foam::vectorField> Foam::mixerRotor::pointMotion() const
         mpm = 1 - mpm;
     }
 
-    return csPtr_->globalPosition
+    return cs_.globalPosition
     (
-        // Motion vector in cymindrical coordinate system (x theta z)
-        csPtr_->localPosition(mesh_.allPoints())
+        // Motion vector in cylindrical coordinate system (x theta z)
+        cs_.localPosition(mesh_.allPoints())
       + vector(0, rpm_*360.0*mesh_.time().deltaT().value()/60.0, 0)*mpm
     ) - mesh_.allPoints();
 }

@@ -42,27 +42,12 @@ namespace Foam
     (
         decompositionMethod,
         manualDecomp,
-        dictionary
-    );
-
-    addToRunTimeSelectionTable
-    (
-        decompositionMethod,
-        manualDecomp,
         dictionaryMesh
     );
 }
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::manualDecomp::manualDecomp(const dictionary& decompositionDict)
-:
-    decompositionMethod(decompositionDict)
-{
-    notImplemented("manualDecomp(const dictionary&)");
-}
-
 
 Foam::manualDecomp::manualDecomp
 (
@@ -71,11 +56,14 @@ Foam::manualDecomp::manualDecomp
 )
 :
     decompositionMethod(decompositionDict),
-    meshPtr_(&mesh),
+    mesh_(mesh),
     decompDataFile_
     (
-        decompositionDict.subDict(word(decompositionDict.lookup("method"))
-      + "Coeffs").lookup("dataFile")
+        decompositionDict.subDict
+        (
+            word(decompositionDict.lookup("method"))
+          + "Coeffs"
+        ).lookup("dataFile")
     )
 {}
 
@@ -88,22 +76,20 @@ Foam::labelList Foam::manualDecomp::decompose
     const scalarField& pointWeights
 )
 {
-    const polyMesh& mesh = *meshPtr_;
-
     labelIOList finalDecomp
     (
         IOobject
         (
             decompDataFile_,
-            mesh.facesInstance(),
-            mesh,
+            mesh_.facesInstance(),
+            mesh_,
             IOobject::MUST_READ,
             IOobject::AUTO_WRITE,
             false
         )
     );
 
-    // check if the final decomposition is OK
+    // Check if the final decomposition is OK
 
     if (finalDecomp.size() != points.size())
     {

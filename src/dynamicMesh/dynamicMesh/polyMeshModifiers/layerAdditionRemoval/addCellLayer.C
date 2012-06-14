@@ -102,7 +102,7 @@ void Foam::layerAdditionRemoval::addCellLayer
                 << endl;
         }
 
-        extrusionDir = minLayerThickness_*masterFaceLayer.pointNormals();
+        extrusionDir = 1.1*minLayerThickness_*masterFaceLayer.pointNormals();
     }
 
     // Add the new points
@@ -118,7 +118,7 @@ void Foam::layerAdditionRemoval::addCellLayer
                 polyAddPoint
                 (
                     points[mp[pointI]]                  // point
-//                   + addDelta_*maxLayerThickness_*extrusionDir[pointI],
+                  //+ minLayerThickness_*extrusionDir[pointI],
                   + addDelta_*extrusionDir[pointI],
                     mp[pointI],                         // master point
                     -1,                                 // zone for point

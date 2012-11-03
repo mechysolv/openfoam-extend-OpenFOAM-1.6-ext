@@ -715,60 +715,63 @@ void Foam::PointEdgeWave<Type>::updateFromPatchInfo
             );
         }
 
-        label nearestPoint = -1;
-        label nearestFace = -1;
-        scalar dist = GREAT;
-
         const labelList& addr = shadowAddr[owner[i]];
 
-        forAll(addr, maI)
+        if(addr.size() > 0)
         {
-            label fID2 = to.zone()[addr[maI]];
+            label nearestPoint = -1;
+            label nearestFace = -1;
+            scalar dist = GREAT;
 
-            const face& f = allFaces[fID2];
-            forAll(f, pI)
+            forAll(addr, saI)
             {
-                label pID2 = f[pI];
+                label fID2 = to.zone()[addr[saI]];
 
-                scalar d = magSqr(points[pID2] - p);
+                const face& f = allFaces[fID2];
+                forAll(f, pI)
+                {
+                    label pID2 = f[pI];
 
-                if(d < dist)
-                {
-                    nearestFace = fID2;
-                    nearestPoint = pID2;
-                    dist = d;
-                }
-                else if(nearestPoint == pID2 && fID2 < mesh_.nFaces())
-                {
-                    // Choose face in patch over face in zone
-                    nearestFace = fID2;
+                    scalar d = magSqr(points[pID2] - p);
+
+                    if(d < dist)
+                    {
+                        nearestFace = fID2;
+                        nearestPoint = pID2;
+                        dist = d;
+                    }
+                    else if(nearestPoint == pID2 && fID2 < mesh_.nFaces())
+                    {
+                        // Choose face in patch over face in zone
+                        nearestFace = fID2;
+                    }
                 }
             }
-        }
 
-        patchInfo[i].enterDomain(to, nearestPoint, points[nearestPoint]);
+            patchInfo[i].enterDomain(to, nearestPoint, points[nearestPoint]);
 
-        if(nearestFace < mesh_.nFaces())
-        {
-            // Update in receiving patch with propagation
-            updatePoint
-            (
-                nearestPoint,
-                patchInfo[i],
-                propagationTol_,
-                allPointInfo_[nearestPoint]
-            );
-        }
-        else
-        {
-            // Update in receiving zone without propagation
-            allPointInfo_[nearestPoint].updatePoint
-            (
-                mesh_,
-                nearestPoint,
-                patchInfo[i],
-                propagationTol_
-            );
+            if(nearestFace < mesh_.nFaces())
+            {
+                // Update in receiving patch with propagation
+                updatePoint
+                (
+                    nearestPoint,
+                    patchInfo[i],
+                    propagationTol_,
+                    allPointInfo_[nearestPoint]
+                );
+            }
+            else
+            {
+                // Update in receiving zone without propagation
+                allPointInfo_[nearestPoint].updatePoint
+                (
+                    mesh_,
+                    nearestPoint,
+                    patchInfo[i],
+                    propagationTol_
+                );
+            }
         }
     }
 }

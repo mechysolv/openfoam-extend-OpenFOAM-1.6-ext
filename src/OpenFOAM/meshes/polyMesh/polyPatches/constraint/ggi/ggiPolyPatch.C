@@ -450,6 +450,8 @@ void Foam::ggiPolyPatch::clearGeom()
 
     deleteDemandDrivenData(receiveAddrPtr_);
     deleteDemandDrivenData(sendAddrPtr_);
+
+    deleteDemandDrivenData(patchToPatchPtr_);
 }
 
 
